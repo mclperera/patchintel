@@ -72,10 +72,20 @@ patchintel/
 │   │   ├── parser.py     # Data normalizer
 │   │   └── cli.py        # Command-line interface
 │   ├── samples/          # Sample datasets
-│   ├── patchintel.py     # Main CLI entry point
-│   └── README.md         # Module documentation
+│   └── patchintel.py     # Main CLI entry point
 │
-├── asset-ingestion/        # 🚧 Phase 2: Asset inventory (coming soon)
+├── asset-ingestion/        # ✅ Phase 2: Asset ingestion & normalization
+│   ├── src/               # Source code
+│   │   ├── __init__.py   # Package initialization
+│   │   ├── ingestion.py  # Multi-source asset loader
+│   │   ├── normalizer.py # Data normalizer
+│   │   └── cli.py        # Command-line interface
+│   ├── samples/          # Sample ServiceNow export
+│   ├── output/           # Normalized assets
+│   ├── patchintel-assets.py  # Main CLI entry point
+│   ├── PHASE2_SUMMARY.md     # Phase 2 completion summary
+│   └── PHASE3_INTEGRATION.md # Integration guide for Phase 3
+│
 ├── risk-engine/            # 🚧 Phase 3: Risk calculation (coming soon)
 ├── dashboard/              # 🚧 Phase 4: Web UI (coming soon)
 ├── ai-layer/               # 🚧 Phase 5: GenAI reasoning (coming soon)
@@ -89,50 +99,78 @@ patchintel/
 
 ## 🏗️ Development Phases
 
-### ✅ Phase 1: Patch Tuesday Data Ingestion (Current)
+### ✅ Phase 1: Patch Tuesday Data Ingestion
 
 **Status:** Complete
 
 Retrieve and normalize Microsoft Patch Tuesday vulnerability data.
 
 **Features:**
-- Fetch data via Microsoft Security Update Guide API
-- Parse CVRF documents and extract CVE details
-- Export to JSON and CSV formats
-- Generate vulnerability statistics
+- ✅ Fetch data via Microsoft Security Update Guide API
+- ✅ Parse CVRF documents and extract CVE details
+- ✅ Export to JSON and CSV formats
+- ✅ Generate vulnerability statistics
 
 **Usage:**
 ```bash
 cd patch-intel
-python fetch.py --month 2024-11
-python parser.py samples/patch_tuesday_2024_11.json
+python patchintel.py fetch 2025-Oct
+python patchintel.py process 2025-Oct
 ```
 
-📖 [Full Documentation](./patch-intel/README.md)
+---
+
+### ✅ Phase 2: Asset Ingestion & Normalization
+
+**Status:** Complete
+
+Ingest and standardize asset inventory data from multiple sources.
+
+**Features:**
+- ✅ ServiceNow CMDB export support
+- ✅ Generic CSV/JSON import with field mapping
+- ✅ Automatic OS name normalization
+- ✅ Data quality scoring (0-100)
+- ✅ Field completeness validation
+- ✅ Standard schema for Phase 3 integration
+
+**Usage:**
+```bash
+cd asset-ingestion
+
+# Load and preview assets
+python patchintel-assets.py ingest samples/servicenow_cmdb_export.csv --preview
+
+# Normalize to standard schema
+python patchintel-assets.py normalize samples/servicenow_cmdb_export.csv output/assets.csv --stats
+
+# Validate data quality
+python patchintel-assets.py validate samples/servicenow_cmdb_export.csv --min-quality 70
+```
+
+**Output Schema:**
+- 20 standardized fields (hostname, os, os_version, business_criticality, patch_group, etc.)
+- 91/100 average data quality on test data
+- Ready for Phase 3 CVE correlation
+
+📖 [Phase 2 Summary](./asset-ingestion/PHASE2_SUMMARY.md) | [Phase 3 Integration Guide](./asset-ingestion/PHASE3_INTEGRATION.md)
 
 ---
 
-### 🚧 Phase 2: Asset Ingestion & Normalization (Coming Soon)
-
-Ingest and standardize asset inventory data.
-
-**Planned Features:**
-- CSV asset import
-- AD/Intune integration
-- Data quality scoring
-- Asset schema normalization
-
----
-
-### 🚧 Phase 3: Rule-Based Risk Engine (Coming Soon)
+### 🚧 Phase 3: Rule-Based Risk Engine (Next)
 
 Correlate vulnerabilities to assets and calculate risk scores.
 
 **Planned Features:**
-- CVE-to-asset matching
-- Risk scoring algorithm
-- Prioritized remediation lists
-- Summary reports
+- CVE-to-asset matching (OS/version correlation)
+- Risk scoring algorithm (CVSS × Criticality × Exploitability)
+- Prioritized remediation lists by patch group
+- Deployment scheduling based on maintenance windows
+- Summary reports and statistics
+
+**Integration:**
+- Input: Phase 1 CVEs (233 from Oct 2025) + Phase 2 Assets (25 normalized)
+- Output: Asset-CVE pairs with contextual risk scores (0-100)
 
 ---
 
@@ -237,7 +275,8 @@ By Severity:
 ## 📖 Documentation
 
 - [Product Requirements Document](./docs/PRD.md) - Full project vision and roadmap
-- [Patch-Intel Module](./patch-intel/README.md) - Phase 1 documentation
+- [Phase 2 Summary](./asset-ingestion/PHASE2_SUMMARY.md) - Asset ingestion completion report
+- [Phase 3 Integration](./asset-ingestion/PHASE3_INTEGRATION.md) - Risk engine integration guide
 
 ---
 
@@ -263,9 +302,9 @@ We welcome contributions! This project follows a phased approach:
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 1 | ✅ Complete | Patch Tuesday data ingestion |
-| Phase 2 | 🚧 Planned | Asset ingestion & normalization |
-| Phase 3 | 🚧 Planned | Rule-based risk engine |
+| Phase 1 | ✅ Complete | Patch Tuesday data ingestion (233 CVEs from Oct 2025) |
+| Phase 2 | ✅ Complete | Asset ingestion & normalization (25 assets, 91/100 quality) |
+| Phase 3 | 🚧 Next | Rule-based risk engine (CVE-Asset correlation) |
 | Phase 4 | 🚧 Planned | Basic dashboard |
 | Phase 5 | 🚧 Planned | GenAI reasoning layer |
 | Phase 6 | 💭 Future | Adaptive CMDB overlay |
@@ -274,7 +313,15 @@ We welcome contributions! This project follows a phased approach:
 
 ## 📝 Release History
 
-### v0.1.0 (Current)
+### v0.2.0 (Current)
+- ✅ Asset ingestion from ServiceNow CMDB exports
+- ✅ Multi-source asset loading (CSV, JSON)
+- ✅ Automatic OS normalization
+- ✅ Data quality scoring (0-100)
+- ✅ Standard 20-field schema
+- ✅ Phase 3 integration ready
+
+### v0.1.0
 - ✅ Microsoft Patch Tuesday data fetching
 - ✅ CVRF document parsing and normalization
 - ✅ JSON and CSV export capabilities
