@@ -1,0 +1,245 @@
+# PatchIntel Risk Scoring Configuration
+# Phase 3.1 - Core 6 Dials
+#
+# This configuration file controls how vulnerability risk scores are calculated.
+# All multipliers can be tuned based on your organization's risk tolerance.
+
+# ============================================================================
+# METADATA
+# ============================================================================
+name: "Default Balanced Configuration"
+version: "1.0"
+created: "2025-11-08"
+environment: "production"
+description: "Balanced risk scoring suitable for most organizations"
+
+# ============================================================================
+# DIAL 1: CVSS Base Score (Foundation)
+# ============================================================================
+cvss_base_score:
+  use_as_base: true                # Use CVSS score (0-10) as the foundation
+  missing_score_default: 5.0       # Default for CVEs without CVSS (15% of data)
+  scale_factor: 10                 # Scale final score to 0-100
+  
+  # Note: CVSS base score is the starting point for all calculations
+  # All other dials are multipliers applied to this base
+
+# ============================================================================
+# DIAL 2: Business Criticality (Asset Importance)
+# ============================================================================
+# Scale: 1-4 (1 = Most Critical, 4 = Least Critical)
+# Source: Asset business_criticality field
+# Impact: 0.5x to 2.0x multiplier
+
+business_criticality_multiplier:
+  level_1_critical: 2.0    # Domain Controllers, Primary DB, Core Infrastructure
+  level_2_high: 1.5        # Production servers, Key applications
+  level_3_medium: 1.0      # Development, Secondary systems (baseline)
+  level_4_low: 0.5         # Test systems, Non-critical endpoints
+  
+  # Tuning Guidance:
+  # - Healthcare/Finance: Increase level_1 to 2.5 for regulated assets
+  # - Startups: Use 1.8, 1.3, 1.0, 0.6 for flatter priority
+  # - Security-first: Use 2.5, 2.0, 1.5, 0.8 for aggressive patching
+
+# ============================================================================
+# DIAL 3: Exploit Status (MOST CRITICAL DIAL)
+# ============================================================================
+# Source: CVE impact_type field (parsed)
+# Impact: 0.5x to 3.0x multiplier
+# This is the highest-impact dial - active exploitation = immediate action
+
+exploit_status_multiplier:
+  exploited_in_wild: 3.0       # Confirmed exploitation (HIGHEST PRIORITY)
+  publicly_disclosed: 2.0      # PoC available, high risk
+  exploitation_unlikely: 0.5   # Microsoft assessment: low risk (LOWER PRIORITY)
+  default: 1.0                 # Unknown/unconfirmed status
+  
+  # Tuning Guidance:
+  # - High-value targets: Increase exploited_in_wild to 4.0-5.0
+  # - During ransomware waves: Increase publicly_disclosed to 2.5-3.0
+  # - Risk-averse orgs: Increase exploitation_unlikely to 0.8 (don't defer too much)
+
+# ============================================================================
+# DIAL 4: Severity Type (Impact Classification)
+# ============================================================================
+# Source: CVE severity field (Microsoft classification)
+# Impact: 0.8x to 2.0x multiplier
+
+severity_type_multiplier:
+  Remote Code Execution: 2.0       # Highest impact - complete system compromise
+  Elevation of Privilege: 1.5      # Common, serious - privilege escalation
+  Security Feature Bypass: 1.2     # Can enable other attacks
+  Denial of Service: 1.0           # Availability impact
+  Tampering: 1.1                   # Data integrity risk
+  Spoofing: 0.9                    # Authentication/identity risk
+  Information Disclosure: 0.8      # Typically informational (lowest priority)
+  
+  # Tuning Guidance:
+  # - Availability-critical (hospitals, ISPs): Increase Denial of Service to 1.5
+  # - Data-sensitive (legal, finance): Increase Information Disclosure to 1.2
+  # - Web-facing apps: Increase Security Feature Bypass to 1.5
+
+# ============================================================================
+# DIAL 5: Age/Freshness (Time Since Disclosure)
+# ============================================================================
+# Source: CVE release_date field
+# Impact: 1.0x to 1.5x multiplier
+# Rationale: Fresh vulnerabilities = higher urgency (exploit dev timeline)
+
+age_multiplier:
+  days_0_to_7: 1.5         # Fresh (0-7 days): High urgency, limited info
+  days_8_to_30: 1.3        # Recent (8-30 days): Standard patching window
+  days_31_to_90: 1.1       # Aging (31-90 days): Some urgency remains
+  days_90_plus: 1.0        # Old (90+ days): Lower urgency if still unpatched
+  
+  # Tuning Guidance:
+  # - Fast-patching orgs: Increase 0-7 days to 2.0 (emergency response)
+  # - Slow patch cycles: Decrease all by 0.1-0.2 to reduce pressure
+  # - Zero-day focused: Increase 0-7 days to 2.5
+
+# ============================================================================
+# DIAL 6: Asset Type (Infrastructure Context)
+# ============================================================================
+# Source: Asset asset_type field
+# Impact: 0.9x to 1.3x multiplier
+# Rationale: Servers = always-on, critical services = higher exposure
+
+asset_type_multiplier:
+  server: 1.3              # Always-on, runs critical services
+  laptop: 1.0              # Mobile, intermittent connectivity (baseline)
+  desktop: 0.9             # Typically internal, lower exposure
+  virtual_machine: 1.2     # Often multi-tenant, shared resources
+  container: 1.1           # Ephemeral but potentially widespread
+  
+  # Tuning Guidance:
+  # - Server-heavy infrastructure: Increase server to 1.5
+  # - Remote workforce (endpoints): Increase laptop to 1.2-1.3
+  # - Cloud-native: Increase container to 1.3
+
+# ============================================================================
+# RISK SCORING FORMULA
+# ============================================================================
+scoring:
+  formula: |
+    RISK_SCORE = (
+      cvss_base_score
+      × business_criticality_multiplier
+      × exploit_status_multiplier
+      × severity_type_multiplier
+      × age_multiplier
+      × asset_type_multiplier
+    ) × scale_factor
+    
+    # Cap at maximum
+    RISK_SCORE = min(RISK_SCORE, 100)
+  
+  cap_maximum: 100           # Maximum risk score
+  floor_minimum: 0           # Minimum risk score
+
+# ============================================================================
+# PRIORITY BANDS (Risk Score Ranges)
+# ============================================================================
+# These bands determine patching urgency and SLAs
+
+priority_bands:
+  critical:
+    min_score: 90
+    max_score: 100
+    label: "CRITICAL"
+    action: "Deploy immediately (out-of-cycle emergency deployment)"
+    sla_hours: 24
+    color: "red"
+    
+  high:
+    min_score: 75
+    max_score: 89
+    label: "HIGH"
+    action: "Deploy in next scheduled maintenance window"
+    sla_hours: 168      # 1 week
+    color: "orange"
+    
+  elevated:
+    min_score: 60
+    max_score: 74
+    label: "ELEVATED"
+    action: "Deploy this patch cycle"
+    sla_hours: 336      # 2 weeks
+    color: "yellow"
+    
+  medium:
+    min_score: 40
+    max_score: 59
+    label: "MEDIUM"
+    action: "Deploy next cycle or as resources permit"
+    sla_hours: 720      # 30 days
+    color: "blue"
+    
+  low:
+    min_score: 20
+    max_score: 39
+    label: "LOW"
+    action: "Monitor and defer 2-3 cycles"
+    sla_hours: 2160     # 90 days
+    color: "green"
+    
+  informational:
+    min_score: 0
+    max_score: 19
+    label: "INFORMATIONAL"
+    action: "Optional - defer indefinitely or apply during major upgrades"
+    sla_hours: null
+    color: "gray"
+
+# ============================================================================
+# REPORTING OPTIONS
+# ============================================================================
+reporting:
+  show_calculation_breakdown: true   # Show formula steps in output
+  include_dial_values: true          # Show which multipliers were applied
+  group_by_patch_group: true         # Organize by asset patch groups
+  group_by_priority: true            # Organize by priority band
+  export_formats:
+    - csv
+    - json
+  
+# ============================================================================
+# VALIDATION & QUALITY
+# ============================================================================
+validation:
+  warn_missing_cvss: true           # Warn when CVSS score is missing
+  warn_missing_criticality: true    # Warn when asset criticality is missing
+  require_minimum_data_quality: 70  # Minimum asset data quality score
+
+# ============================================================================
+# NOTES & GUIDANCE
+# ============================================================================
+# 
+# HOW TO TUNE THIS CONFIGURATION:
+#
+# 1. Start with defaults (balanced for most organizations)
+# 2. Run risk calculation with real data
+# 3. Review priority band distribution:
+#    - Too many CRITICAL? Decrease exploit_multiplier or criticality
+#    - Too few HIGH? Increase severity or age multipliers
+# 4. Adjust incrementally (change by 0.1-0.2 at a time)
+# 5. Use version control to track changes
+# 6. Document reasoning for each tuning decision
+#
+# COMMON TUNING SCENARIOS:
+#
+# Scenario 1: "We're overwhelmed with CRITICAL alerts"
+#   → Decrease exploit_status_multiplier.exploited_in_wild from 3.0 to 2.5
+#   → Decrease business_criticality_multiplier.level_1 from 2.0 to 1.8
+#
+# Scenario 2: "We're missing important patches"
+#   → Increase age_multiplier.days_0_to_7 from 1.5 to 2.0
+#   → Increase exploit_status_multiplier.publicly_disclosed from 2.0 to 2.5
+#
+# Scenario 3: "Our servers are under-prioritized"
+#   → Increase asset_type_multiplier.server from 1.3 to 1.5
+#
+# Scenario 4: "Information disclosure CVEs are too noisy"
+#   → Decrease severity_type_multiplier.Information Disclosure from 0.8 to 0.5
+#
+# ============================================================================
