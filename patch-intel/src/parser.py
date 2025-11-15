@@ -24,13 +24,13 @@ class PatchDataParser:
         'Unspecified': 0
     }
     
-    # Exploit status mapping
-    EXPLOIT_STATUS = {
-        'Exploitation Detected': 'ACTIVE',
-        'Exploitation More Likely': 'HIGH_RISK',
-        'Exploitation Less Likely': 'LOW_RISK',
-        'Exploitation Unlikely': 'UNLIKELY',
-        'Unknown': 'UNKNOWN'
+    # Exploitation status codes used in normalized output
+    EXPLOITATION_STATUS = {
+        'exploitation_detected': 'Active exploitation in the wild',
+        'exploitation_more_likely': 'Exploitation more likely',
+        'exploitation_less_likely': 'Exploitation less likely',
+        'exploitation_unlikely': 'Exploitation unlikely',
+        'unknown': 'Unknown exploitation status'
     }
     
     def __init__(self, raw_data: Dict):
@@ -159,10 +159,14 @@ class PatchDataParser:
                 faq = note_value
         
         # Extract threats (severity, exploit status, impact)
+        # CVRF Threat Type Mapping:
+        #   Type 0 = Impact Type (Remote Code Execution, Elevation of Privilege, etc.)
+        #   Type 1 = Exploitation Status (Publicly Disclosed;Exploited;Latest Software Release...)
+        #   Type 3 = Severity Rating (Critical, Important, Moderate, Low)
         threats = vuln.get('Threats', [])
         severity = 'Unknown'
         severity_value = 0
-        exploit_status = 'UNKNOWN'
+        exploit_status = 'unknown'
         exploit_status_raw = 'Unknown'
         impact_type = ''
         
@@ -170,14 +174,28 @@ class PatchDataParser:
             threat_type = threat.get('Type')
             threat_desc = threat.get('Description', {}).get('Value', '')
             
-            if threat_type == 0:  # Severity
+            if threat_type == 0:  # Impact Type (RCE, EoP, DoS, etc.)
+                impact_type = threat_desc
+            elif threat_type == 1:  # Exploitation Status (complex string)
+                exploit_status_raw = threat_desc
+                
+                # Parse the exploitation status string
+                # Format: "Publicly Disclosed:No;Exploited:Yes;Latest Software Release:Exploitation Detected"
+                if 'Exploited:Yes' in threat_desc:
+                    exploit_status = 'exploitation_detected'
+                elif 'Exploitation Detected' in threat_desc:
+                    exploit_status = 'exploitation_detected'
+                elif 'Exploitation More Likely' in threat_desc:
+                    exploit_status = 'exploitation_more_likely'
+                elif 'Exploitation Less Likely' in threat_desc:
+                    exploit_status = 'exploitation_less_likely'
+                elif 'Exploitation Unlikely' in threat_desc:
+                    exploit_status = 'exploitation_unlikely'
+                else:
+                    exploit_status = 'unknown'
+            elif threat_type == 3:  # Severity Rating (Critical, Important, etc.)
                 severity = threat_desc
                 severity_value = self.SEVERITY_LEVELS.get(severity, 0)
-            elif threat_type == 1:  # Impact
-                impact_type = threat_desc
-            elif threat_type == 3:  # Exploit Status
-                exploit_status_raw = threat_desc
-                exploit_status = self.EXPLOIT_STATUS.get(threat_desc, 'UNKNOWN')
         
         # Extract CVSS scores
         cvss_sets = vuln.get('CVSSScoreSets', [])
@@ -380,7 +398,7 @@ class PatchDataParser:
             stats['by_exploit_status'][exploit_status] = stats['by_exploit_status'].get(exploit_status, 0) + 1
             
             # Active exploits
-            if exploit_status == 'ACTIVE':
+            if exploit_status == 'exploitation_detected':
                 stats['with_active_exploits'] += 1
             
             # Critical vulns
