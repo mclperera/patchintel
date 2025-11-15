@@ -77,7 +77,6 @@ for score in test_scores:
     band = config.get_priority_band(score)
     print(f"\nScore {score}: {band['label']}")
     print(f"  Action: {band['action']}")
-    print(f"  SLA: {band['sla_hours']}h")
 
 # Calculate example scenarios
 print("\n" + "=" * 70)

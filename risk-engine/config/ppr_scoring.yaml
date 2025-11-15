@@ -156,7 +156,6 @@ priority_bands:
     max_score: 175
     label: "🔴 EMERGENCY PATCH"
     action: "Deploy immediately via out-of-cycle emergency deployment"
-    sla_hours: 24
     color: "red"
     description: "Exploited vulnerabilities on critical/internet-facing assets"
     example: "Exploited RCE on internet-facing server: 50+25+20+20+30+30 = 175"
@@ -166,7 +165,6 @@ priority_bands:
     max_score: 119
     label: "🟠 HIGH PRIORITY"
     action: "Deploy in next scheduled maintenance window"
-    sla_hours: 168      # 1 week
     color: "orange"
     description: "High CVSS with exploitation potential on important assets"
     example: "EoP with public exploit on DC: 30+15+5+10+20+15 = 95"
@@ -176,7 +174,6 @@ priority_bands:
     max_score: 79
     label: "🟡 ELEVATED"
     action: "Deploy within current patch cycle"
-    sla_hours: 336      # 2 weeks
     color: "yellow"
     description: "Moderate risk requiring timely patching"
     example: "Network-accessible RCE on internal server: 5+15+20+10+30+15 = 95"
@@ -186,7 +183,6 @@ priority_bands:
     max_score: 59
     label: "🔵 MODERATE"
     action: "Deploy in next patch cycle or as resources permit"
-    sla_hours: 720      # 30 days
     color: "blue"
     description: "Standard patches without urgent exploitation risk"
     example: "Local EoP on workstation: 10+15+5+10+20+5 = 65"
@@ -196,7 +192,6 @@ priority_bands:
     max_score: 39
     label: "🟢 LOW"
     action: "Monitor and defer 2-3 cycles if needed"
-    sla_hours: 2160     # 90 days
     color: "green"
     description: "Low-risk vulnerabilities, informational"
     example: "Info disclosure on test system: 0+8+5+10+10+0 = 33"
@@ -206,7 +201,6 @@ priority_bands:
     max_score: 19
     label: "⚪ INFORMATIONAL"
     action: "Optional - defer indefinitely or apply during major upgrades"
-    sla_hours: null
     color: "gray"
     description: "Minimal risk, optional patching"
     example: "Low CVSS info disclosure on lab system: 0+0+5+10+10+0 = 25"

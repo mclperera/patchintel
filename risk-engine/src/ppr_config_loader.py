@@ -188,7 +188,6 @@ class PPRConfig:
                     'name': band_name,
                     'label': band_config.get('label', band_name),
                     'action': band_config.get('action', ''),
-                    'sla_hours': band_config.get('sla_hours'),
                     'color': band_config.get('color', 'gray'),
                     'description': band_config.get('description', '')
                 }
@@ -198,7 +197,6 @@ class PPRConfig:
             'name': 'unknown',
             'label': 'Unknown',
             'action': 'Review manually',
-            'sla_hours': None,
             'color': 'gray',
             'description': 'Score outside defined bands'
         }
@@ -341,8 +339,7 @@ class PPRConfig:
             label = band_config.get('label', band_name)
             min_score = band_config.get('min_score')
             max_score = band_config.get('max_score')
-            sla = band_config.get('sla_hours', 'N/A')
-            print(f"  {label:30s} {min_score:3d}-{max_score:3d} (SLA: {sla}h)")
+            print(f"  {label:30s} {min_score:3d}-{max_score:3d}")
         
         print("=" * 70 + "\n")
 
