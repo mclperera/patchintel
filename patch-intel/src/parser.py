@@ -314,12 +314,12 @@ class PatchDataParser:
         for vuln in self.normalized_data:
             flattened = vuln.copy()
             
-            # Convert lists to comma-separated strings
-            flattened['affected_products'] = '; '.join(vuln['affected_products'][:5])  # First 5 products
-            flattened['affected_product_ids'] = '; '.join(vuln['affected_product_ids'][:5])
-            flattened['kb_articles'] = '; '.join(vuln['kb_articles'])
-            flattened['superceded_by'] = '; '.join(vuln['superceded_by'])
-            flattened['acknowledged_researchers'] = '; '.join(vuln['acknowledged_researchers'])
+            # Convert lists to comma-separated strings, ensuring all items are strings
+            flattened['affected_products'] = '; '.join([str(p) for p in vuln['affected_products'][:5]])  # First 5 products
+            flattened['affected_product_ids'] = '; '.join([str(p) for p in vuln['affected_product_ids'][:5]])
+            flattened['kb_articles'] = '; '.join([str(k) for k in vuln['kb_articles']])
+            flattened['superceded_by'] = '; '.join([str(s) for s in vuln['superceded_by']])
+            flattened['acknowledged_researchers'] = '; '.join([str(r) for r in vuln['acknowledged_researchers']])
             
             df_data.append(flattened)
         
