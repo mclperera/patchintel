@@ -27,7 +27,6 @@ class AssetNormalizer:
         - department: Business unit/department
         - owner: Asset owner/responsible person
         - business_criticality: 1-4 (1=Critical, 4=Low)
-        - asset_exposure: internet_facing, server_domain_infra, internal_workstation, non_critical
         - patch_group: Patch deployment group
         - maintenance_window: Scheduled maintenance window
         - last_patched: Last patch date
@@ -78,22 +77,6 @@ class AssetNormalizer:
             df.get('business_criticality', 3), 
             errors='coerce'
         ).fillna(3).astype(int)
-        
-        # Determine asset exposure (for PPR framework)
-        # Check if source has this field, otherwise estimate
-        if 'asset_exposure' in df.columns or 'u_asset_exposure' in df.columns:
-            exposure_field = 'u_asset_exposure' if 'u_asset_exposure' in df.columns else 'asset_exposure'
-            normalized['asset_exposure'] = df[exposure_field].apply(self._normalize_asset_exposure)
-        else:
-            # Estimate based on available data
-            normalized['asset_exposure'] = normalized.apply(
-                lambda row: self._estimate_asset_exposure(
-                    row['business_criticality'],
-                    row['asset_type'],
-                    row['location']
-                ),
-                axis=1
-            )
         
         # Parse dates
         if 'last_patched' in df.columns:
@@ -151,7 +134,6 @@ class AssetNormalizer:
             'department': '',
             'owner': '',
             'business_criticality': 3,
-            'asset_exposure': 'internal_workstation',  # Default exposure
             'patch_group': '',
             'maintenance_window': '',
             'last_patched': pd.NaT,
@@ -170,21 +152,6 @@ class AssetNormalizer:
         normalized['os'] = normalized['os'].apply(self._normalize_os_name)
         normalized['os_version'] = normalized['os_version'].apply(self._normalize_os_version)
         normalized['asset_type'] = normalized['asset_type'].str.lower()
-        
-        # Determine asset exposure if not provided in mapping
-        if 'asset_exposure' not in field_mapping or not field_mapping.get('asset_exposure'):
-            normalized['asset_exposure'] = normalized.apply(
-                lambda row: self._estimate_asset_exposure(
-                    row['business_criticality'],
-                    row['asset_type'],
-                    row['location']
-                ),
-                axis=1
-            )
-        else:
-            normalized['asset_exposure'] = normalized['asset_exposure'].apply(
-                self._normalize_asset_exposure
-            )
         
         # Add metadata
         normalized['source'] = 'generic'
@@ -276,83 +243,6 @@ class AssetNormalizer:
             return match.group(0)
         
         return version
-    
-    def _normalize_asset_exposure(self, exposure: str) -> str:
-        """
-        Normalize asset exposure strings to standard categories.
-        
-        Args:
-            exposure: Raw exposure string
-            
-        Returns:
-            Normalized exposure category
-        """
-        if pd.isna(exposure) or not exposure:
-            return "internal_workstation"
-        
-        exposure_lower = str(exposure).lower().strip()
-        
-        # Internet-facing variants
-        if any(term in exposure_lower for term in ['internet', 'public', 'dmz', 'external', 'internet-facing']):
-            return "internet_facing"
-        
-        # Server/Domain infrastructure
-        elif any(term in exposure_lower for term in ['server', 'domain', 'infrastructure', 'dc', 'domain controller']):
-            return "server_domain_infra"
-        
-        # Non-critical
-        elif any(term in exposure_lower for term in ['test', 'dev', 'non-critical', 'lab']):
-            return "non_critical"
-        
-        # Default to internal workstation
-        return "internal_workstation"
-    
-    def _estimate_asset_exposure(self, 
-                                  criticality: int, 
-                                  asset_type: str, 
-                                  location: str) -> str:
-        """
-        Estimate asset exposure based on available attributes.
-        
-        This is a heuristic fallback when explicit exposure data is unavailable.
-        
-        Args:
-            criticality: Business criticality (1-4)
-            asset_type: Asset type (server, laptop, etc.)
-            location: Physical/virtual location
-            
-        Returns:
-            Estimated exposure category
-        """
-        location_str = str(location).lower() if pd.notna(location) else ""
-        asset_type_str = str(asset_type).lower() if pd.notna(asset_type) else ""
-        
-        # Check location hints for internet-facing
-        if any(term in location_str for term in ['dmz', 'external', 'internet', 'public', 'edge']):
-            return "internet_facing"
-        
-        # Check location hints for non-critical
-        if any(term in location_str for term in ['test', 'dev', 'lab', 'sandbox']):
-            return "non_critical"
-        
-        # Critical servers (Level 1) + server type → likely infrastructure
-        if criticality == 1 and 'server' in asset_type_str:
-            return "server_domain_infra"
-        
-        # Level 2-3 servers → internal servers (still important but not domain infra)
-        elif criticality in [2, 3] and 'server' in asset_type_str:
-            return "server_domain_infra"
-        
-        # Level 4 (low criticality) → non-critical
-        elif criticality == 4:
-            return "non_critical"
-        
-        # Laptops and desktops → typically internal workstations
-        elif any(term in asset_type_str for term in ['laptop', 'desktop', 'workstation']):
-            return "internal_workstation"
-        
-        # Default fallback
-        return "internal_workstation"
     
     def _calculate_data_quality(self, row: pd.Series) -> int:
         """

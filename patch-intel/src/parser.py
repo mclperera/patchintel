@@ -238,9 +238,6 @@ class PatchDataParser:
             names = ack.get('Name', [])
             acknowledged_researchers.extend(names)
         
-        # Parse CVSS vector components for PPR framework
-        cvss_components = self._parse_cvss_vector(cvss_vector)
-        
         # Build normalized structure
         normalized = {
             # Core identifiers
@@ -255,16 +252,6 @@ class PatchDataParser:
             'cvss_base_score': cvss_base_score,
             'cvss_temporal_score': cvss_temporal_score,
             'cvss_vector': cvss_vector,
-            
-            # CVSS vector components (for PPR)
-            'attack_vector': cvss_components.get('AV', ''),
-            'attack_complexity': cvss_components.get('AC', ''),
-            'privileges_required': cvss_components.get('PR', ''),
-            'user_interaction': cvss_components.get('UI', ''),
-            'scope': cvss_components.get('S', ''),
-            'confidentiality_impact': cvss_components.get('C', ''),
-            'integrity_impact': cvss_components.get('I', ''),
-            'availability_impact': cvss_components.get('A', ''),
             
             # Exploit information
             'exploit_status': exploit_status,
@@ -294,35 +281,6 @@ class PatchDataParser:
         
         return normalized
     
-    def _parse_cvss_vector(self, cvss_vector: str) -> Dict[str, str]:
-        """
-        Parse CVSS vector string into individual components.
-        
-        Args:
-            cvss_vector: CVSS vector string (e.g., "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H")
-            
-        Returns:
-            Dictionary with CVSS components (AV, AC, PR, UI, S, C, I, A, E, RL, RC)
-        """
-        components = {}
-        
-        if not cvss_vector:
-            return components
-        
-        try:
-            # Split by '/' and skip the version part (CVSS:3.1)
-            parts = cvss_vector.split('/')
-            
-            for part in parts[1:]:  # Skip first part "CVSS:3.1"
-                if ':' in part:
-                    key, value = part.split(':', 1)
-                    components[key] = value
-        
-        except Exception as e:
-            print(f"Warning: Error parsing CVSS vector '{cvss_vector}': {e}")
-        
-        return components
-    
     def to_dataframe(self) -> pd.DataFrame:
         """
         Convert normalized data to pandas DataFrame
@@ -338,18 +296,12 @@ class PatchDataParser:
         for vuln in self.normalized_data:
             flattened = vuln.copy()
             
-            # Convert lists to comma-separated strings (safely handle non-strings)
-            def safe_join(items, max_items=5):
-                """Safely join list items, converting to strings and limiting count"""
-                if not isinstance(items, list):
-                    return str(items)
-                return '; '.join(str(item) for item in items[:max_items])
-            
-            flattened['affected_products'] = safe_join(vuln['affected_products'], 5)
-            flattened['affected_product_ids'] = safe_join(vuln['affected_product_ids'], 5)
-            flattened['kb_articles'] = safe_join(vuln['kb_articles'])
-            flattened['superceded_by'] = safe_join(vuln['superceded_by'])
-            flattened['acknowledged_researchers'] = safe_join(vuln['acknowledged_researchers'])
+            # Convert lists to comma-separated strings
+            flattened['affected_products'] = '; '.join(vuln['affected_products'][:5])  # First 5 products
+            flattened['affected_product_ids'] = '; '.join(vuln['affected_product_ids'][:5])
+            flattened['kb_articles'] = '; '.join(vuln['kb_articles'])
+            flattened['superceded_by'] = '; '.join(vuln['superceded_by'])
+            flattened['acknowledged_researchers'] = '; '.join(vuln['acknowledged_researchers'])
             
             df_data.append(flattened)
         
