@@ -463,77 +463,149 @@ with tab2:
             - Monitor for changes in threat landscape
             """
 
-    # Get list of high-priority CVEs for dropdown
-    high_priority_cves = df[
-        (df['severity'].isin(['Critical', 'Important'])) | 
-        (df['exploit_status'] == 'exploitation_detected')
-    ].sort_values('cvss_base_score', ascending=False).head(30)
+    # Get all CVEs sorted by CVSS score (highest first)
+    all_cves = df.sort_values('cvss_base_score', ascending=False)
 
     col1, col2 = st.columns([1, 1])
 
     with col1:
         st.subheader("Step 1: Select a CVE")
-    
-        # Create CVE options
-        cve_options = {f"{row['cve_id']} - {row['title'][:60]}...": idx 
-                       for idx, row in high_priority_cves.iterrows()}
-    
-        selected_cve_label = st.selectbox(
-            "Choose a CVE to assess",
-            options=list(cve_options.keys()),
-            key="cve_selector"
+        
+        # Selection mode toggle
+        selection_mode = st.radio(
+            "How would you like to select a CVE?",
+            options=["🔍 Search/Filter", "📋 Browse List"],
+            horizontal=True,
+            key="selection_mode"
         )
-    
-        selected_cve_idx = cve_options[selected_cve_label]
-        selected_cve = df.loc[selected_cve_idx]
-    
-        # Display CVE details
-        st.markdown("---")
-        st.markdown("**📋 CVE Characteristics:**")
-    
-        severity_emoji = {
-            'Critical': '🔴',
-            'Important': '🟠',
-            'Moderate': '🟡',
-            'Low': '🟢'
-        }.get(selected_cve['severity'], '⚪')
-    
-        st.markdown(f"""
-        - {severity_emoji} **Severity:** {selected_cve['severity']}
-        - **📊 CVSS Score:** {selected_cve['cvss_base_score']}
-        - **🌐 Attack Vector:** {selected_cve['attack_vector']}
-        - **🔑 Privileges Required:** {selected_cve['privileges_required']}
-        - **⚠️ Exploitation Status:** {selected_cve['exploitation_status_display']}
-        - **💥 Impact Type:** {selected_cve['impact_type']}
-        """)
+        
+        if selection_mode == "🔍 Search/Filter":
+            # Search and filter interface
+            search_term = st.text_input(
+                "Search CVEs by ID or title",
+                placeholder="e.g., CVE-2025 or Elevation of Privilege",
+                key="cve_search"
+            )
+            
+            # Filter options
+            filter_col1, filter_col2 = st.columns(2)
+            with filter_col1:
+                severity_filter = st.multiselect(
+                    "Severity",
+                    options=['Critical', 'Important', 'Moderate', 'Low'],
+                    default=['Critical', 'Important'],
+                    key="severity_filter"
+                )
+            
+            with filter_col2:
+                exploit_filter = st.multiselect(
+                    "Exploitation Status",
+                    options=['Exploitation Detected', 'More Likely', 'Less Likely', 'Exploitation Less Likely'],
+                    key="exploit_filter"
+                )
+            
+            # Apply filters
+            filtered_df = all_cves.copy()
+            
+            if search_term:
+                filtered_df = filtered_df[
+                    filtered_df['cve_id'].str.contains(search_term, case=False) |
+                    filtered_df['title'].str.contains(search_term, case=False)
+                ]
+            
+            if severity_filter:
+                filtered_df = filtered_df[filtered_df['severity'].isin(severity_filter)]
+            
+            if exploit_filter:
+                filtered_df = filtered_df[filtered_df['exploitation_status_display'].isin(exploit_filter)]
+            
+            # Show results count
+            st.caption(f"Found {len(filtered_df)} CVEs matching criteria")
+            
+            # Create options from filtered results
+            if len(filtered_df) > 0:
+                cve_options = {f"{row['cve_id']} - {row['title'][:60]}...": idx 
+                               for idx, row in filtered_df.iterrows()}
+                
+                selected_cve_label = st.selectbox(
+                    "Select a CVE from results",
+                    options=list(cve_options.keys()),
+                    key="filtered_cve_selector"
+                )
+                
+                selected_cve_idx = cve_options[selected_cve_label]
+                selected_cve = df.loc[selected_cve_idx]
+            else:
+                st.warning("No CVEs match your criteria. Please adjust filters.")
+                # Default to first CVE if no match
+                selected_cve = all_cves.iloc[0]
+        
+        else:  # Browse List mode
+            # Create CVE options from all CVEs
+            cve_options = {f"{row['cve_id']} - {row['title'][:60]}...": idx 
+                           for idx, row in all_cves.iterrows()}
+            
+            st.caption(f"Browsing all {len(all_cves)} CVEs (sorted by CVSS score)")
+            
+            selected_cve_label = st.selectbox(
+                "Choose a CVE to assess",
+                options=list(cve_options.keys()),
+                key="browse_cve_selector"
+            )
+            
+            selected_cve_idx = cve_options[selected_cve_label]
+            selected_cve = df.loc[selected_cve_idx]
 
     with col2:
-        st.subheader("Step 2: Define Your Asset")
-    
-        st.markdown("**Asset Exposure:**")
-        asset_exposure = st.radio(
-            "Where is this asset located?",
-            options=[
-                'Internet-facing',
-                'Server (domain/infrastructure)',
-                'Internal workstation',
-                'Non-critical/isolated'
-            ],
-            key="exposure_selector",
-            label_visibility="collapsed"
-        )
-    
-        st.markdown("**Business Criticality:**")
-        business_criticality = st.radio(
-            "What is the business importance?",
-            options=[
-                'Production',
-                'Development/Test',
-                'Non-business critical'
-            ],
-            key="criticality_selector",
-            label_visibility="collapsed"
-        )
+        # Create sub-columns for CVE Characteristics and Step 2
+        subcol1, subcol2 = st.columns([1, 1])
+        
+        with subcol1:
+            st.markdown("**📋 CVE Characteristics:**")
+        
+            severity_emoji = {
+                'Critical': '🔴',
+                'Important': '🟠',
+                'Moderate': '🟡',
+                'Low': '🟢'
+            }.get(selected_cve['severity'], '⚪')
+        
+            st.markdown(f"""
+            - {severity_emoji} **Severity:** {selected_cve['severity']}
+            - **📊 CVSS Score:** {selected_cve['cvss_base_score']}
+            - **🌐 Attack Vector:** {selected_cve['attack_vector']}
+            - **🔑 Privileges Required:** {selected_cve['privileges_required']}
+            - **⚠️ Exploitation Status:** {selected_cve['exploitation_status_display']}
+            - **💥 Impact Type:** {selected_cve['impact_type']}
+            """)
+        
+        with subcol2:
+            st.markdown("**Step 2: Define Your Asset**")
+        
+            st.markdown("**Asset Exposure:**")
+            asset_exposure = st.radio(
+                "Where is this asset located?",
+                options=[
+                    'Internet-facing',
+                    'Server (domain/infrastructure)',
+                    'Internal workstation',
+                    'Non-critical/isolated'
+                ],
+                key="exposure_selector",
+                label_visibility="collapsed"
+            )
+        
+            st.markdown("**Business Criticality:**")
+            business_criticality = st.radio(
+                "What is the business importance?",
+                options=[
+                    'Production',
+                    'Development/Test',
+                    'Non-business critical'
+                ],
+                key="criticality_selector",
+                label_visibility="collapsed"
+            )
 
     # Calculate risk
     risk_score = calculate_risk_score(selected_cve, asset_exposure, business_criticality)
@@ -703,6 +775,103 @@ with tab2:
             st.metric("Your Score", f"{risk_score:.0f}", delta=f"{risk_score - min_risk:.0f} above minimum")
         with col3:
             st.metric("Maximum Possible", f"{max_risk:.0f}", help="All highest-risk factors combined")
+
+    # Risk band explanation - always visible
+    st.markdown("---")
+    st.subheader("📊 Understanding Risk Levels")
+    if True:  # Keep same indentation structure
+        st.markdown("""
+        ### Risk Score Bands (0-100 scale)
+        
+        Our risk scoring system translates technical vulnerability data into actionable patching priorities:
+        """)
+        
+        # Visual breakdown with colored boxes
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown("""
+            <div style='background-color: #88dd00; padding: 15px; border-radius: 8px; text-align: center;'>
+                <h3 style='color: white; margin: 0;'>🟢 LOW</h3>
+                <h2 style='color: white; margin: 5px 0;'>0-39</h2>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("""
+            **Standard Process**
+            - Patch in 60-90 days
+            - Include in quarterly updates
+            - Monitor for changes
+            
+            *Typical: Low CVSS on isolated systems*
+            """)
+        
+        with col2:
+            st.markdown("""
+            <div style='background-color: #ffaa00; padding: 15px; border-radius: 8px; text-align: center;'>
+                <h3 style='color: white; margin: 0;'>🟡 MEDIUM</h3>
+                <h2 style='color: white; margin: 5px 0;'>40-69</h2>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("""
+            **Regular Cycle**
+            - Patch within 30 days
+            - Next maintenance window
+            - Test before deployment
+            
+            *Typical: Moderate CVSS or protected systems*
+            """)
+        
+        with col3:
+            st.markdown("""
+            <div style='background-color: #ff6600; padding: 15px; border-radius: 8px; text-align: center;'>
+                <h3 style='color: white; margin: 0;'>🟠 HIGH</h3>
+                <h2 style='color: white; margin: 5px 0;'>70-89</h2>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("""
+            **Urgent Action**
+            - Patch within 7 days
+            - Prioritize deployment
+            - Apply compensating controls
+            
+            *Typical: High CVSS with exposure*
+            """)
+        
+        with col4:
+            st.markdown("""
+            <div style='background-color: #ff0000; padding: 15px; border-radius: 8px; text-align: center;'>
+                <h3 style='color: white; margin: 0;'>🔥 CRITICAL</h3>
+                <h2 style='color: white; margin: 5px 0;'>90-100</h2>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("""
+            **Emergency**
+            - Patch within 24 hours
+            - Isolate if needed
+            - Notify management
+            
+            *Typical: Critical CVSS + Internet + Production + Active exploitation*
+            """)
+        
+        st.markdown("---")
+        st.markdown("""
+        **What drives a CRITICAL (90+) score?**
+        - High CVSS base score (8.0+)
+        - Internet-facing exposure (3.0x multiplier)
+        - Active exploitation detected (1.5x multiplier)
+        - No authentication required (1.4x multiplier)
+        - Production environment (2.0x multiplier)
+        
+        **Example:** CVSS 9.0 × 5 = 45, then 45 × 3.0 × 1.5 × 1.4 × 2.0 = **567** → capped at **100** (CRITICAL)
+        
+        **What keeps a score LOW (0-39)?**
+        - Lower CVSS score (< 6.0)
+        - Physical attack vector (0.3x multiplier)
+        - High privileges required (1.0x multiplier)
+        - Non-business critical system (0.4x multiplier)
+        
+        **Example:** CVSS 5.0 × 5 = 25, then 25 × 0.3 × 1.0 × 1.0 × 0.4 = **3** (LOW)
+        """)
 
     # Comparison helper
     with st.expander("🔄 Compare Different Asset Types", expanded=False):
