@@ -97,6 +97,14 @@ def load_data():
     try:
         # Load the parsed Patch Tuesday data
         csv_path = Path(__file__).parent / "samples" / "patch_tuesday_2025_10.csv"
+        
+        # Debug: Check if file exists
+        if not csv_path.exists():
+            # Try alternate path for deployment
+            csv_path = Path("samples/patch_tuesday_2025_10.csv")
+            if not csv_path.exists():
+                raise FileNotFoundError(f"CSV file not found at {csv_path.absolute()}")
+        
         df = pd.read_csv(csv_path)
         
         # Parse CVSS vector for Attack Vector and Privileges Required
