@@ -466,7 +466,7 @@ with tab2:
     # Get all CVEs sorted by CVSS score (highest first)
     all_cves = df.sort_values('cvss_base_score', ascending=False)
 
-    col1, col2 = st.columns([1, 1])
+    col1, col2, col3 = st.columns([1.2, 1.2, 0.8])
 
     with col1:
         st.subheader("Step 1: Select a CVE")
@@ -607,9 +607,23 @@ with tab2:
                 label_visibility="collapsed"
             )
 
-    # Calculate risk
+    # Calculate risk (moved up to display in col3)
     risk_score = calculate_risk_score(selected_cve, asset_exposure, business_criticality)
     risk_level, risk_color = get_risk_level(risk_score)
+
+    with col3:
+        st.markdown("**🎯 Risk Score**")
+        st.markdown("")  # Spacing
+        
+        # Large risk score display
+        st.markdown(f"<h1 style='text-align: center; color: {risk_color}; margin: 0;'>{risk_score:.0f}</h1>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align: center; font-size: 14px; margin: 0;'>out of 100</p>", unsafe_allow_html=True)
+        
+        # Progress bar
+        st.progress(risk_score / 100)
+        
+        # Risk level badge
+        st.markdown(f"<p style='text-align: center; font-size: 18px; font-weight: bold; color: {risk_color}; margin-top: 10px;'>{risk_level}</p>", unsafe_allow_html=True)
 
     # Display risk assessment
     st.markdown("---")
