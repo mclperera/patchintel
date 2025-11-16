@@ -39,43 +39,51 @@ st.markdown("""
 st.title("🛡️ PatchIntel - Patch Tuesday Dashboard")
 st.markdown("**Microsoft Security Updates Analysis | October 2025**")
 
-# Add Microsoft terminology guide
-with st.expander("ℹ️ Microsoft CVRF Field Definitions", expanded=False):
+# Microsoft Field Definitions
+with st.expander("ℹ️ Understanding Microsoft Patch Tuesday Fields", expanded=False):
     st.markdown("""
-    **Data Source:** Microsoft Security Update Guide (CVRF - Common Vulnerability Reporting Framework)
+    ### Data Source
+    Microsoft Security Update Guide (CVRF - Common Vulnerability Reporting Framework)
     
-    **Key Fields:**
+    ### Key Fields Explained
     
-    - **Severity Rating** (Type 3): Microsoft's official severity assessment
-      - Critical, Important, Moderate, Low
+    **Severity Rating** - Microsoft's official assessment of vulnerability severity:
+    - 🔴 **Critical**: Vulnerabilities whose exploitation could allow code execution without user interaction
+    - 🟠 **Important**: Vulnerabilities whose exploitation could compromise confidentiality, integrity, or availability
+    - 🟡 **Moderate**: Impact is mitigated by factors such as authentication requirements or applicability
+    - 🟢 **Low**: Very difficult to exploit or minimal impact
     
-    - **Impact Type** (Type 0): The vulnerability category
-      - Remote Code Execution (RCE)
-      - Elevation of Privilege (EoP)
-      - Denial of Service (DoS)
-      - Security Feature Bypass (SFB)
-      - Information Disclosure
-      - Spoofing
-      - Tampering
+    **Impact Type** - What an attacker can achieve:
+    - **Remote Code Execution (RCE)**: Run arbitrary code on target system
+    - **Elevation of Privilege (EoP)**: Gain higher-level permissions
+    - **Denial of Service (DoS)**: Make system/service unavailable
+    - **Security Feature Bypass (SFB)**: Circumvent security mechanisms
+    - **Information Disclosure**: Access sensitive information
+    - **Spoofing**: Impersonate another user/system
+    - **Tampering**: Modify data or code
     
-    - **Exploitation Status** (Type 1): Microsoft's exploitation assessment
-      - exploitation_detected - Active exploitation in the wild
-      - exploitation_more_likely - Higher likelihood of exploitation
-      - exploitation_less_likely - Lower likelihood of exploitation
-      - exploitation_unlikely - Unlikely to be exploited
+    **Exploitation Status** - Microsoft's assessment of exploitation likelihood:
+    - ⚠️ **Exploitation Detected**: Active exploitation observed in the wild
+    - 🔶 **More Likely**: Microsoft assesses exploitation is more likely to occur
+    - 🔷 **Less Likely**: Microsoft assesses exploitation is less likely
+    - ⚪ **Unlikely**: Microsoft assesses exploitation is unlikely
     
-    - **CVSS Score**: Common Vulnerability Scoring System (0-10)
+    **CVSS Score** - Industry standard severity score (0-10):
+    - 9.0-10.0: Critical
+    - 7.0-8.9: High
+    - 4.0-6.9: Medium
+    - 0.1-3.9: Low
     
-    - **Attack Vector**: Network proximity required
-      - Network (N) - Remotely exploitable
-      - Adjacent (A) - Adjacent network required
-      - Local (L) - Local access required
-      - Physical (P) - Physical access required
+    **Attack Vector** - How can the vulnerability be exploited:
+    - 🌐 **Network**: Remotely exploitable over a network
+    - 📡 **Adjacent**: Requires access to adjacent network (same subnet)
+    - 💻 **Local**: Requires local access to the system
+    - 🔧 **Physical**: Requires physical access to the device
     
-    - **Privileges Required**: Authentication level needed
-      - None (N) - No authentication
-      - Low (L) - Basic user privileges
-      - High (H) - Admin privileges
+    **Privileges Required** - What level of access is needed:
+    - ❌ **None**: No authentication required
+    - 👤 **Low**: Basic user-level privileges required
+    - 👑 **High**: Administrator/elevated privileges required
     """)
 
 st.markdown("---")
@@ -137,183 +145,7 @@ df = load_data()
 if df is None:
     st.stop()
 
-# Key Metrics
-st.header("📊 Executive Summary")
-
-col1, col2, col3, col4, col5 = st.columns(5)
-
-with col1:
-    total_cves = len(df)
-    st.metric("Total CVEs", f"{total_cves}")
-
-with col2:
-    critical_count = len(df[df['severity'] == 'Critical'])
-    st.metric("🔴 Critical", critical_count)
-
-with col3:
-    important_count = len(df[df['severity'] == 'Important'])
-    st.metric("🟠 Important", important_count)
-
-with col4:
-    exploited_count = len(df[df['exploit_status'] == 'exploitation_detected'])
-    st.metric("⚠️ Exploited", exploited_count)
-
-with col5:
-    avg_cvss = df['cvss_base_score'].mean()
-    st.metric("Avg CVSS", f"{avg_cvss:.1f}")
-
-st.markdown("---")
-
-# Severity Distribution
-st.header("🎯 Severity Distribution")
-
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    # Severity bar chart
-    severity_counts = df['severity'].value_counts().reset_index()
-    severity_counts.columns = ['Severity', 'Count']
-    
-    color_map = {
-        'Critical': '#ff0000',
-        'Important': '#ff6600',
-        'Moderate': '#ffaa00',
-        'Low': '#88dd00',
-        'Unknown': '#888888'
-    }
-    
-    fig = px.bar(
-        severity_counts,
-        x='Severity',
-        y='Count',
-        color='Severity',
-        text='Count',
-        title="CVEs by Severity Rating",
-        color_discrete_map=color_map
-    )
-    fig.update_traces(textposition='outside')
-    fig.update_layout(showlegend=False, height=400)
-    st.plotly_chart(fig, use_container_width=True)
-
-with col2:
-    st.subheader("Severity Breakdown")
-    for _, row in severity_counts.iterrows():
-        emoji = {
-            'Critical': '🔴',
-            'Important': '🟠',
-            'Moderate': '🟡',
-            'Low': '🟢',
-            'Unknown': '⚪'
-        }.get(row['Severity'], '●')
-        
-        pct = (row['Count'] / total_cves) * 100
-        st.metric(
-            f"{emoji} {row['Severity']}",
-            f"{row['Count']} ({pct:.1f}%)"
-        )
-
-st.markdown("---")
-
-# Impact Type Distribution
-st.header("🔍 Impact Type Distribution")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    impact_counts = df['impact_type'].value_counts().head(10).reset_index()
-    impact_counts.columns = ['Impact Type', 'Count']
-    
-    fig = px.bar(
-        impact_counts,
-        y='Impact Type',
-        x='Count',
-        orientation='h',
-        title="Top Impact Types",
-        color='Count',
-        color_continuous_scale='Reds'
-    )
-    fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
-
-with col2:
-    # Exploitation status pie chart
-    exploit_counts = df['exploitation_status_display'].value_counts().reset_index()
-    exploit_counts.columns = ['Status', 'Count']
-    
-    fig = px.pie(
-        exploit_counts,
-        names='Status',
-        values='Count',
-        title="Exploitation Status Distribution",
-        color_discrete_sequence=px.colors.sequential.RdBu
-    )
-    fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
-
-st.markdown("---")
-
-# CVSS Score Distribution
-st.header("📈 CVSS Score Analysis")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    fig = px.histogram(
-        df,
-        x='cvss_base_score',
-        nbins=20,
-        title="CVSS Score Distribution",
-        labels={'cvss_base_score': 'CVSS Score', 'count': 'Number of CVEs'},
-        color_discrete_sequence=['#667eea']
-    )
-    fig.update_layout(height=350)
-    st.plotly_chart(fig, use_container_width=True)
-
-with col2:
-    # CVSS by Severity
-    fig = px.box(
-        df,
-        x='severity',
-        y='cvss_base_score',
-        title="CVSS Scores by Severity Rating",
-        color='severity',
-        color_discrete_map=color_map
-    )
-    fig.update_layout(height=350, showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
-
-st.markdown("---")
-
-# Critical CVEs Detail
-st.header("🚨 Critical & Exploited CVEs")
-
-# Show exploited CVEs first
-exploited_df = df[df['exploit_status'] == 'exploitation_detected']
-if len(exploited_df) > 0:
-    st.subheader(f"⚠️ {len(exploited_df)} CVEs with Active Exploitation")
-    
-    display_cols = ['cve_id', 'title', 'severity', 'cvss_base_score', 'impact_type', 'attack_vector', 'privileges_required']
-    st.dataframe(
-        exploited_df[display_cols].sort_values('cvss_base_score', ascending=False),
-        use_container_width=True,
-        height=250
-    )
-
-# Show critical CVEs
-critical_df = df[df['severity'] == 'Critical']
-if len(critical_df) > 0:
-    st.subheader(f"🔴 {len(critical_df)} Critical Severity CVEs")
-    
-    display_cols = ['cve_id', 'title', 'cvss_base_score', 'impact_type', 'exploitation_status_display', 'attack_vector', 'privileges_required']
-    st.dataframe(
-        critical_df[display_cols].sort_values('cvss_base_score', ascending=False),
-        use_container_width=True,
-        height=300
-    )
-
-st.markdown("---")
-
-# Detailed CVE Explorer
+# Detailed CVE Explorer - MOVED TO TOP
 st.header("🔎 CVE Explorer")
 
 # Filters
@@ -472,10 +304,186 @@ st.download_button(
 
 st.markdown("---")
 
+# Key Metrics
+st.header("📊 Executive Summary")
+
+col1, col2, col3, col4, col5 = st.columns(5)
+
+with col1:
+    total_cves = len(df)
+    st.metric("Total CVEs", f"{total_cves}")
+
+with col2:
+    critical_count = len(df[df['severity'] == 'Critical'])
+    st.metric("🔴 Critical", critical_count)
+
+with col3:
+    important_count = len(df[df['severity'] == 'Important'])
+    st.metric("🟠 Important", important_count)
+
+with col4:
+    exploited_count = len(df[df['exploit_status'] == 'exploitation_detected'])
+    st.metric("⚠️ Exploited", exploited_count)
+
+with col5:
+    avg_cvss = df['cvss_base_score'].mean()
+    st.metric("Avg CVSS", f"{avg_cvss:.1f}")
+
+st.markdown("---")
+
+# Severity Distribution
+st.header("🎯 Severity Distribution")
+
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    # Severity bar chart
+    severity_counts = df['severity'].value_counts().reset_index()
+    severity_counts.columns = ['Severity', 'Count']
+    
+    color_map = {
+        'Critical': '#ff0000',
+        'Important': '#ff6600',
+        'Moderate': '#ffaa00',
+        'Low': '#88dd00',
+        'Unknown': '#888888'
+    }
+    
+    fig = px.bar(
+        severity_counts,
+        x='Severity',
+        y='Count',
+        color='Severity',
+        text='Count',
+        title="CVEs by Severity Rating",
+        color_discrete_map=color_map
+    )
+    fig.update_traces(textposition='outside')
+    fig.update_layout(showlegend=False, height=400)
+    st.plotly_chart(fig, use_container_width=True)
+
+with col2:
+    st.subheader("Severity Breakdown")
+    for _, row in severity_counts.iterrows():
+        emoji = {
+            'Critical': '🔴',
+            'Important': '🟠',
+            'Moderate': '🟡',
+            'Low': '🟢',
+            'Unknown': '⚪'
+        }.get(row['Severity'], '●')
+        
+        pct = (row['Count'] / total_cves) * 100
+        st.metric(
+            f"{emoji} {row['Severity']}",
+            f"{row['Count']} ({pct:.1f}%)"
+        )
+
+st.markdown("---")
+
+# Impact Type Distribution
+st.header("🔍 Impact Type Distribution")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    impact_counts = df['impact_type'].value_counts().head(10).reset_index()
+    impact_counts.columns = ['Impact Type', 'Count']
+    
+    fig = px.bar(
+        impact_counts,
+        y='Impact Type',
+        x='Count',
+        orientation='h',
+        title="Top Impact Types",
+        color='Count',
+        color_continuous_scale='Reds'
+    )
+    fig.update_layout(height=400)
+    st.plotly_chart(fig, use_container_width=True)
+
+with col2:
+    # Exploitation status pie chart
+    exploit_counts = df['exploitation_status_display'].value_counts().reset_index()
+    exploit_counts.columns = ['Status', 'Count']
+    
+    fig = px.pie(
+        exploit_counts,
+        names='Status',
+        values='Count',
+        title="Exploitation Status Distribution",
+        color_discrete_sequence=px.colors.sequential.RdBu
+    )
+    fig.update_layout(height=400)
+    st.plotly_chart(fig, use_container_width=True)
+
+st.markdown("---")
+
+# CVSS Score Distribution
+st.header("📈 CVSS Score Analysis")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    fig = px.histogram(
+        df,
+        x='cvss_base_score',
+        nbins=20,
+        title="CVSS Score Distribution",
+        labels={'cvss_base_score': 'CVSS Score', 'count': 'Number of CVEs'},
+        color_discrete_sequence=['#667eea']
+    )
+    fig.update_layout(height=350)
+    st.plotly_chart(fig, use_container_width=True)
+
+with col2:
+    # CVSS by Severity
+    fig = px.box(
+        df,
+        x='severity',
+        y='cvss_base_score',
+        title="CVSS Scores by Severity Rating",
+        color='severity',
+        color_discrete_map=color_map
+    )
+    fig.update_layout(height=350, showlegend=False)
+    st.plotly_chart(fig, use_container_width=True)
+
+st.markdown("---")
+
+# Critical CVEs Detail
+st.header("🚨 High Priority CVEs")
+
+# Show exploited CVEs first
+exploited_df = df[df['exploit_status'] == 'exploitation_detected']
+if len(exploited_df) > 0:
+    st.subheader(f"⚠️ {len(exploited_df)} CVEs with Active Exploitation Detected")
+    
+    display_cols = ['cve_id', 'title', 'severity', 'cvss_base_score', 'impact_type', 'attack_vector', 'privileges_required']
+    st.dataframe(
+        exploited_df[display_cols].sort_values('cvss_base_score', ascending=False),
+        use_container_width=True,
+        height=250
+    )
+
+# Show critical CVEs
+critical_df = df[df['severity'] == 'Critical']
+if len(critical_df) > 0:
+    st.subheader(f"🔴 {len(critical_df)} Critical Severity CVEs")
+    
+    display_cols = ['cve_id', 'title', 'cvss_base_score', 'impact_type', 'exploitation_status_display', 'attack_vector', 'privileges_required']
+    st.dataframe(
+        critical_df[display_cols].sort_values('cvss_base_score', ascending=False),
+        use_container_width=True,
+        height=300
+    )
+
+st.markdown("---")
+
 # Footer
 col1, col2 = st.columns([3, 1])
 with col1:
-    st.caption("PatchIntel Dashboard v2.0 | Built with Streamlit | November 2025")
+    st.caption("PatchIntel Dashboard | Built with Streamlit | November 2025")
     st.caption("Data source: Microsoft Security Update Guide (CVRF) - October 2025 Patch Tuesday")
 with col2:
-    st.caption("📊 Data Quality: ✅ Verified")
+    st.caption("📊 Data: ✅ Verified")
