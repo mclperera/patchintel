@@ -629,30 +629,38 @@ with tab2:
     st.markdown("---")
     st.subheader("🎯 Risk Assessment for Your Environment")
 
-    # Risk score visualization
-    col1, col2, col3 = st.columns([2, 1, 2])
+    # 4-column layout for all details
+    col1, col2, col3, col4 = st.columns([1.5, 1.5, 1.5, 1.5])
 
     with col1:
         st.markdown(f"### Risk Score: **{risk_score:.0f}/100**")
         # Progress bar
         st.progress(risk_score / 100)
-
-    with col2:
         st.markdown(f"### {risk_level}")
 
     # Explanation
     reasons = get_risk_explanation(selected_cve, asset_exposure, business_criticality, risk_score)
 
-    col1, col2 = st.columns(2)
-
-    with col1:
+    with col2:
         st.markdown("**Why is this the risk level?**")
         for reason in reasons:
             st.markdown(reason)
 
-    with col2:
+    with col3:
         st.markdown("**Recommended Action:**")
         st.markdown(get_recommendation(risk_score, selected_cve, asset_exposure))
+    
+    with col4:
+        st.markdown("**Risk Level Definitions:**")
+        st.markdown("""
+        🔴 **Critical (90-100):** Immediate action required
+        
+        🟠 **High (70-89):** Priority patching needed
+        
+        🟡 **Medium (40-69):** Schedule patching
+        
+        🟢 **Low (0-39):** Plan and monitor
+        """)
 
     # Detailed calculation breakdown
     with st.expander("🔍 How is this calculated?", expanded=False):
